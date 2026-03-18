@@ -36,10 +36,8 @@ class ModelHandler:
 
         # Use the model's actual float type for 'cpu'.
         elif device == "cpu":
-            try:
-                self.torch_dtype = getattr(torch, config["dtype"])
-            except KeyError:  # for old models
-                self.torch_dtype = getattr(torch, config["torch_dtype"])
+            dtype = config.get('text_config', {}).get('dtype') or config.get('dtype') or config.get('torch_dtype')
+            self.torch_dtype = getattr(torch, dtype)
             self.quantization_config = None
         else:
             raise RuntimeError(f"The device must be 'cpu' or 'cuda': {device}")
@@ -50,9 +48,6 @@ class ModelHandler:
             dtype=self.torch_dtype,
             quantization_config=self.quantization_config,
             device_map='auto' if device == "cuda" else 'cpu',
-            # Adjust attn_implementation for Gemma2.
-            attn_implementation=None if device != "cuda" else (
-                "eager" if (isGemma2 or isGemma3) else "flash_attention_2"),
             trust_remote_code=True,
             low_cpu_mem_usage=True,
         )
