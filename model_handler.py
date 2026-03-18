@@ -36,9 +36,10 @@ class ModelHandler:
 
         # Use the model's actual float type for 'cpu'.
         elif device == "cpu":
-            if "torch_dtype" not in config:
-                raise KeyError("The 'torch_dtype' key is missing in the configuration file")
-            self.torch_dtype = getattr(torch, config["torch_dtype"])
+            try:
+                self.torch_dtype = getattr(torch, config["dtype"])
+            except KeyError:  # for old models
+                self.torch_dtype = getattr(torch, config["torch_dtype"])
             self.quantization_config = None
         else:
             raise RuntimeError(f"The device must be 'cpu' or 'cuda': {device}")
