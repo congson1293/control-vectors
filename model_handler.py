@@ -20,24 +20,15 @@ class ModelHandler:
         with open(config_path, 'r') as f:
             config = json.load(f)
 
-        # Determine if the model is Gemma2ForCausalLM
-        # NOTE: The Gemma2 models need attn_implementation="eager" and doesn't like float16 due to the +/- 2^16 range.
-        #       https://old.reddit.com/r/LocalLLaMA/comments/1dsvpp2/thread_on_running_gemma_2_correctly_with_hf/
-        # Determine if the model is Gemma2ForCausalLM or Gemma3ForCausalLM
-        isGemma2 = (config.get("architectures", [])[0] == "Gemma2ForCausalLM")
-        isGemma3 = (config.get("architectures", [])[0] == "Gemma3ForCausalLM" or
-                    "gemma3" in config.get("model_type", "").lower())
-
         # Use float16 and 4-bit for 'cuda'.
+        dtype = config.get('text_config', {}).get('dtype') or config.get('dtype') or config.get('torch_dtype')
+        self.torch_dtype = getattr(torch, dtype)
+
         if device == "cuda":
-            # Adjust dtype for Gemma2/Gemma3
-            self.torch_dtype = torch.bfloat16 if (isGemma2 or isGemma3) else torch.float16
             self.quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=self.torch_dtype)
 
         # Use the model's actual float type for 'cpu'.
         elif device == "cpu":
-            dtype = config.get('text_config', {}).get('dtype') or config.get('dtype') or config.get('torch_dtype')
-            self.torch_dtype = getattr(torch, dtype)
             self.quantization_config = None
         else:
             raise RuntimeError(f"The device must be 'cpu' or 'cuda': {device}")
