@@ -3,37 +3,38 @@ import json
 import random
 from typing import List
 
+
 class DatasetManager:
 
     def __init__(
-        self,
-        prompt_stems_file_path: str,
-        continuations_file_path: str,
-        writing_prompts_file_path: str,
-        num_prompt_samples: int,
-        use_baseline_class: bool = True
+            self,
+            prompt_stems_file_path: str,
+            continuations_file_path: str,
+            writing_prompts_file_path: str,
+            num_prompt_samples: int,
+            use_baseline_class: bool = True
     ):
         self.class_names: List[str] = []
         self.datasets = []
-        
+
         self.pre_prompt_stems: List[str] = []
         self.post_prompt_stems: List[str] = []
         self.continuations: List[List[str]] = []
         self.writing_prompts: List[str] = []
-        
+
         self.use_baseline_class = use_baseline_class
-        
+
         self._load_prompt_stems(prompt_stems_file_path)
         self._load_continuations(continuations_file_path)
         self._load_writing_prompts(writing_prompts_file_path)
-                
+
         self._generate_datasets(num_prompt_samples)
-        
+
         #self.print_datasets()
 
     def get_num_classes(self) -> int:
         return len(self.class_names)
-    
+
     def get_total_samples(self) -> int:
         return sum(len(dataset) for dataset in self.datasets)
 
@@ -60,13 +61,13 @@ class DatasetManager:
             raise PermissionError(f"Permission denied for accessing the file {file_path}.")
         except json.JSONDecodeError:
             raise ValueError(f"Failed to decode JSON from {file_path}.")
-    
+
         if 'pre' not in data or 'post' not in data:
             raise ValueError("JSON must contain 'pre' and 'post' keys.")
-    
+
         self.pre_prompt_stems = data['pre']
         self.post_prompt_stems = data['post']
-    
+
         print(f"Done ({len(self.pre_prompt_stems)} + {len(self.post_prompt_stems)} loaded).")
 
     def _load_continuations(self, file_path: str) -> None:
@@ -81,16 +82,16 @@ class DatasetManager:
             raise PermissionError(f"Permission denied for accessing the file {file_path}.")
         except json.JSONDecodeError:
             raise ValueError(f"Failed to decode JSON from {file_path}.")
-    
+
         if not data or 'classes' not in data or 'data' not in data:
             raise ValueError("Invalid or no data loaded.")
-    
+
         if self.use_baseline_class:
             self.class_names = ['baseline'] + data['classes']  # Prepend "baseline" to the class names
         else:
             self.class_names = data['classes']
         self.continuations = data['data']
-    
+
         print(f"Done ({self.get_num_classes()} classes; each with {len(self.continuations)} continuations loaded).")
 
     def _load_writing_prompts(self, file_path: str) -> List[str]:
@@ -112,14 +113,14 @@ class DatasetManager:
         pre_stem = random.choice(self.pre_prompt_stems)
         post_stem = random.choice(self.post_prompt_stems)
         continuation = random.choice(self.continuations)
-        
+
         stem = f"{pre_stem} {post_stem}"
         if self.use_baseline_class:
             message_tuple = (stem + ".",)  # Baseline.
         else:
             message_tuple = ()
         message_tuple += tuple(f"{stem} {cont}." for cont in continuation)
-    
+
         return message_tuple
 
     def _generate_datasets(self, num_prompt_samples: int) -> None:
@@ -135,4 +136,5 @@ class DatasetManager:
             # IMPORTANT: Use the same matched writing prompt for each in the system message tuple!
             for i, system_message in enumerate(system_message_tuple):
                 self.datasets[i].append((system_message, writing_prompt))
-        print(f"Done ([{self.get_num_classes()} classes x {num_samples_per_class} prompts] {self.get_total_samples()} generated).")
+        print(
+            f"Done ([{self.get_num_classes()} classes x {num_samples_per_class} prompts] {self.get_total_samples()} generated).")

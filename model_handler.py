@@ -5,10 +5,12 @@ import torch
 
 from typing import Union
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+import gguf
+
 
 class ModelHandler:
 
-    def __init__(self, pretrained_model_name_or_path: Union[str, os.PathLike], device = "cpu"):
+    def __init__(self, pretrained_model_name_or_path: Union[str, os.PathLike], device="cpu"):
         self.device = device
 
         # Load the config file.
@@ -24,7 +26,7 @@ class ModelHandler:
         # Determine if the model is Gemma2ForCausalLM or Gemma3ForCausalLM
         isGemma2 = (config.get("architectures", [])[0] == "Gemma2ForCausalLM")
         isGemma3 = (config.get("architectures", [])[0] == "Gemma3ForCausalLM" or
-                  "gemma3" in config.get("model_type", "").lower())
+                    "gemma3" in config.get("model_type", "").lower())
 
         # Use float16 and 4-bit for 'cuda'.
         if device == "cuda":
@@ -44,13 +46,14 @@ class ModelHandler:
         print(f"Loading '{pretrained_model_name_or_path}' model and tokenizer...")
         self.model = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path,
-            torch_dtype = self.torch_dtype,
-            quantization_config = self.quantization_config,
-            device_map = 'auto' if device == "cuda" else 'cpu',
+            dtype=self.torch_dtype,
+            quantization_config=self.quantization_config,
+            device_map='auto' if device == "cuda" else 'cpu',
             # Adjust attn_implementation for Gemma2.
-            attn_implementation=None if device != "cuda" else ("eager" if (isGemma2 or isGemma3) else "flash_attention_2"),
+            attn_implementation=None if device != "cuda" else (
+                "eager" if (isGemma2 or isGemma3) else "flash_attention_2"),
             trust_remote_code=True,
-            low_cpu_mem_usage = True,
+            low_cpu_mem_usage=True,
         )
         self.model.requires_grad_(False)
 
@@ -70,13 +73,14 @@ class ModelHandler:
 
         # Each vector must have unit norm so V.V^T correctly computes the projection onto the subspace.
         # NOTE: The projection matrix calculation is invariant to the signs of the vectors though...
-        direction_matrix = torch.nn.functional.normalize(direction_matrix, p = 2, dim = 1)
+        direction_matrix = torch.nn.functional.normalize(direction_matrix, p=2, dim=1)
 
-        identity_matrix = torch.eye(direction_matrix.size(1), dtype = torch.float32, device = self.model.device)
+        identity_matrix = torch.eye(direction_matrix.size(1), dtype=torch.float32, device=self.model.device)
         projection_matrix = identity_matrix - torch.mm(direction_matrix.t(), direction_matrix)
         weight_matrix = self.model.model.layers[layer_index].mlp.down_proj.weight.data.to(torch.float32)
         weight_matrix = torch.mm(projection_matrix, weight_matrix)
-        self.model.model.layers[layer_index].mlp.down_proj.weight = torch.nn.Parameter(weight_matrix.to(self.torch_dtype))
+        self.model.model.layers[layer_index].mlp.down_proj.weight = torch.nn.Parameter(
+            weight_matrix.to(self.torch_dtype))
 
     def modify_tensors(self, direction_matrix, skip_begin_layers, skip_end_layers):
         assert hasattr(self.model.model, 'layers'), "The model does not have the expected structure."
@@ -84,7 +88,7 @@ class ModelHandler:
             self.modify_tensor(layer_index, direction_matrix)
 
     def save_model_and_tokenizer(self, output_path):
-        print(f"Saving modified model + original tokenizer to '{output_path}'... ", end = "")
+        print(f"Saving modified model + original tokenizer to '{output_path}'... ", end="")
         sys.stdout.flush()
         self.model.save_pretrained(output_path)
         self.tokenizer.save_pretrained(output_path)
@@ -92,19 +96,18 @@ class ModelHandler:
 
     # See: https://github.com/vgel/repeng/blob/main/repeng/extract.py
     def export_gguf(self, directions: list[torch.Tensor | None], path: os.PathLike[str] | str):
-        import gguf
-        ARCHITECTURE = "controlvector"
+        architecture = "controlvector"
 
-        print(f"Initializing GGUFWriter with path: '{path}' and architecture: '{ARCHITECTURE}'")
-        writer = gguf.GGUFWriter(path, ARCHITECTURE)
+        print(f"Initializing GGUFWriter with path: '{path}' and architecture: '{architecture}'")
+        writer = gguf.GGUFWriter(path, architecture)
 
         print(f"- Adding model hint: '{self.get_model_type()}'")
-        writer.add_string(f"{ARCHITECTURE}.model_hint", self.get_model_type())
+        writer.add_string(f"{architecture}.model_hint", self.get_model_type())
 
         # Count non-None tensors to determine the layer count
         #non_none_tensors = [tensor for tensor in directions if tensor is not None]
         print(f"- Adding layer count: '{self.get_num_layers()}'")
-        writer.add_uint32(f"{ARCHITECTURE}.layer_count", self.get_num_layers())
+        writer.add_uint32(f"{architecture}.layer_count", self.get_num_layers())
 
         # Find the hidden dimension size from the first non-None tensor
         hidden_dimension = next((tensor.shape[1] for tensor in directions if tensor is not None), None)
@@ -150,4 +153,3 @@ class ModelHandler:
     def delete(self):
         del self.model
         del self.tokenizer
-
