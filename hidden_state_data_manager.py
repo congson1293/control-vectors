@@ -128,7 +128,7 @@ class HiddenStateDataManager:
         )
         # output.hidden_states = (max_new_tokens; num_layer; batch_size; seq_length; hidden_size)
         hidden_states_by_layer = [hidden_state[:, -1, :].squeeze().to('cpu') for hidden_state in
-                                  output.hidden_states[-1][:]]
+                                  output.hidden_states[-1][:]]  # get hidden layer of the last input token
         deltas = [hidden_states_by_layer[i] - hidden_states_by_layer[i - 1] for i in
                   range(1, len(hidden_states_by_layer))]
         return deltas
