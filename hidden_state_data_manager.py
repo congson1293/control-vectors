@@ -38,10 +38,15 @@ class HiddenStateDataManager:
             print("Done.")
 
     def get_datasets(self, layer_index: int) -> List[torch.Tensor]:
+        # get the last input token of the layer_index
+        # output = [num_datatype; num_sample_of_each_datatype; hidden_size]
         return [torch.stack([sample[layer_index] for sample in dataset]) for dataset in self.dataset_hidden_states]
 
     def get_differenced_datasets(self, layer_index: int) -> List[torch.Tensor]:
         datasets = self.get_datasets(layer_index)
+        # dataset[0] is the baseline
+        # [0] = de-bias direction, [1] = negative direction, [2] = positive direction.
+        # negative - baseline; postive - baseline
         return [dataset - datasets[0] for dataset in datasets[1:]]
 
     def get_num_layers(self) -> int:
@@ -105,6 +110,8 @@ class HiddenStateDataManager:
 
     def _generate_hidden_state_samples(self, dataset_tokens: List[List[torch.Tensor]]) -> None:
         try:
+            # self.dataset_hidden_states = [num_data_type; num_sample_of_each_datatype; num_layer; hidden_size]
+            # each layer contain only 1D tensor of the last input token
             num_samples = sum(len(tokens) for tokens in dataset_tokens)
             with tqdm(total=num_samples, desc="Sampling hidden states") as bar:
                 for token_list in dataset_tokens:
