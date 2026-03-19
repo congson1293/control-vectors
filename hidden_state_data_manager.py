@@ -130,5 +130,5 @@ class HiddenStateDataManager:
         hidden_states_by_layer = [hidden_state[:, -1, :].squeeze().to('cpu') for hidden_state in
                                   output.hidden_states[-1][:]]  # get hidden layer of the last input token
         deltas = [hidden_states_by_layer[i] - hidden_states_by_layer[i - 1] for i in
-                  range(1, len(hidden_states_by_layer))]
+                  range(1, len(hidden_states_by_layer))]  # remove residual connection: x_{t+1} = x_{t} + f{x_{t}}
         return deltas
