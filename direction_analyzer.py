@@ -131,6 +131,7 @@ class DirectionAnalyzer:
                 data = [d.to(torch.float32) for d in data]  # Convert to float32 on CPU
                 print("CUDA is not available. Using CPU instead.")
 
+            # directions are eigen vectors
             directions = compute_symmetrised_cross_covariance_eigenvectors(data[0], data[1])
 
             total_directions = directions.shape[0]
