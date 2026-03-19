@@ -122,6 +122,7 @@ class DirectionAnalyzer:
         for layer_index in range(start_layer_index, num_layers - skip_end_layers):
             print(f"- Layer {layer_index + 1}: ", end="", flush=True)
 
+            # data is the list of the two elements, one is (negative-baseline) and the remain is (positive-baseline)
             data = hidden_state_data_manager.get_differenced_datasets(layer_index)
 
             if torch.cuda.is_available():
