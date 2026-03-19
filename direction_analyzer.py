@@ -1,8 +1,9 @@
 import torch
 
+
 def compute_symmetrised_cross_covariance_eigenvectors(
-    A: torch.Tensor,
-    B: torch.Tensor
+        A: torch.Tensor,
+        B: torch.Tensor
 ) -> torch.Tensor:
     """
     Computes the eigenvectors of the symmetrised cross-covariance matrix: ((A^T * B) + (A^T * B)^T) / 2
@@ -17,11 +18,12 @@ def compute_symmetrised_cross_covariance_eigenvectors(
     # Compute the symmetrised cross-covariance matrix
     AT_B = torch.matmul(A.T, B)
     symmetrised_AT_B = (AT_B + AT_B.T) / 2
-    
+
     # Compute the eigenvectors of the symmetrised cross-covariance matrix
     _, eigenvectors = torch.linalg.eigh(symmetrised_AT_B)
-    
+
     return eigenvectors.T  # as rows
+
 
 def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> torch.Tensor:
     """
@@ -38,6 +40,7 @@ def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> 
     direction = direction / torch.norm(direction)
 
     return torch.matmul(data, direction.reshape(-1, 1)).squeeze()
+
 
 def compute_discriminant_ratio(projected_scoresA: torch.Tensor, projected_scoresB: torch.Tensor) -> torch.Tensor:
     """
@@ -59,6 +62,7 @@ def compute_discriminant_ratio(projected_scoresA: torch.Tensor, projected_scores
     within_class_variance = torch.sum((projected_scoresA - mean1) ** 2) + torch.sum((projected_scoresB - mean2) ** 2)
     return between_class_variance / within_class_variance if within_class_variance != 0 else 0
 
+
 def compute_variance_reduction(projected_scoresA: torch.Tensor, projected_scoresB: torch.Tensor) -> float:
     """
     Computes the variance reduction between two sets of projected scores.
@@ -71,17 +75,19 @@ def compute_variance_reduction(projected_scoresA: torch.Tensor, projected_scores
         float: The variance reduction value.
     """
     combined_scores = torch.cat([projected_scoresA, projected_scoresB])
-    variance_reduction = max(0, 1 - (projected_scoresA.var() + projected_scoresB.var()) / (2 * combined_scores.var()))
+    raw_reduction = 1 - (projected_scoresA.var() + projected_scoresB.var()) / (2 * combined_scores.var())
+    variance_reduction = torch.clamp(raw_reduction, min=0).item()
     return variance_reduction
-    
+
+
 class DirectionAnalyzer:
 
     def __init__(
-        self,
-        hidden_state_data_manager,
-        start_layer_index,
-        skip_end_layers,
-        discriminant_ratio_tolerance
+            self,
+            hidden_state_data_manager,
+            start_layer_index,
+            skip_end_layers,
+            discriminant_ratio_tolerance
     ):
         self.direction_matrices = self._analyze_directions(
             hidden_state_data_manager,
@@ -91,11 +97,11 @@ class DirectionAnalyzer:
         )
 
     def _analyze_directions(
-        self,
-        hidden_state_data_manager,
-        start_layer_index,
-        skip_end_layers,
-        discriminant_ratio_tolerance
+            self,
+            hidden_state_data_manager,
+            start_layer_index,
+            skip_end_layers,
+            discriminant_ratio_tolerance
     ):
 
         num_layers = hidden_state_data_manager.get_num_layers()
@@ -114,7 +120,7 @@ class DirectionAnalyzer:
         direction_matrices = [[[] for _ in range(num_layers)] for _ in range(num_dataset_types)]
 
         for layer_index in range(start_layer_index, num_layers - skip_end_layers):
-            print(f"- Layer {layer_index + 1}: ", end = "", flush = True)
+            print(f"- Layer {layer_index + 1}: ", end="", flush=True)
 
             data = hidden_state_data_manager.get_differenced_datasets(layer_index)
 
@@ -129,33 +135,33 @@ class DirectionAnalyzer:
             total_directions = directions.shape[0]
 
             results = []
-            
+
             filtered_directions = 0
 
             # Project each direction onto datasets then store discriminant ratio and scaled/flipped direction.
             for i in range(directions.shape[0]):
-                direction = directions[i,:]
+                direction = directions[i, :]
                 projected_scores = [project_data_onto_direction(d, direction) for d in data]
                 discriminant_ratio = compute_discriminant_ratio(projected_scores[0], projected_scores[1])
                 if discriminant_ratio >= discriminant_ratio_tolerance:
                     mean_desired = projected_scores[1].mean()
-                    scaled_direction = mean_desired * direction # Scale and flip sign if needed.
+                    scaled_direction = mean_desired * direction  # Scale and flip sign if needed.
                     results.append((discriminant_ratio, scaled_direction))
                     filtered_directions += 1
 
             if filtered_directions > 0:
-                print(f"[{filtered_directions}/{total_directions} filtered]", end = "")
+                print(f"[{filtered_directions}/{total_directions} filtered]", end="")
             else:
-                print("[no directions filtered]", end = "")
-                
+                print("[no directions filtered]", end="")
+
             # Sort the directions into descending order using the scoring criterion.
-            results.sort(key = lambda x: x[0], reverse = True)
+            results.sort(key=lambda x: x[0], reverse=True)
 
             best_discriminant_ratio = 0.0
             best_variance_reduction = 0.0
             best_means = [0.0, 0.0]
             best_stds = [0.0, 0.0]
-            best_direction_sum = torch.zeros_like(directions[0,:])
+            best_direction_sum = torch.zeros_like(directions[0, :])
 
             selected_directions = 0
 
@@ -182,17 +188,19 @@ class DirectionAnalyzer:
                 ]
                 raw_sum = abs(best_means[1]) + abs(best_means[0])
                 raw_ratio = abs(best_means[1]) / raw_sum if raw_sum != 0 else 0.0
-                print(f" [{selected_directions}/{total_directions} selected]", end = "")
-                print(f" Δ = {best_discriminant_ratio * 100:.0f}%,", end = "")
-                print(f" Δσ² = {best_variance_reduction * 100:.1f}%,", end = "")
-                print(f" σ= ({best_stds[0]:.3f}, {best_stds[1]:.3f}),", end = "")
-                print(f" μ = ({best_means[0]:.3f}, {best_means[1]:.3f} [{raw_ratio * 100:.1f}%]) --> ", end = "")
-                print(f" μ' = ({midpoint:.3f}, {adjusted_means[0]:.3f}, {adjusted_means[1]:.3f})", end = "")
+                print(f" [{selected_directions}/{total_directions} selected]", end="")
+                print(f" Δ = {best_discriminant_ratio * 100:.0f}%,", end="")
+                print(f" Δσ² = {best_variance_reduction * 100:.1f}%,", end="")
+                print(f" σ= ({best_stds[0]:.3f}, {best_stds[1]:.3f}),", end="")
+                print(f" μ = ({best_means[0]:.3f}, {best_means[1]:.3f} [{raw_ratio * 100:.1f}%]) --> ", end="")
+                print(f" μ' = ({midpoint:.3f}, {adjusted_means[0]:.3f}, {adjusted_means[1]:.3f})", end="")
                 print("")
                 best_unit_direction = best_direction_sum / torch.norm(best_direction_sum)
-                direction_matrices[0][layer_index].append(midpoint * best_unit_direction)           # de-bias vector.
-                direction_matrices[1][layer_index].append(adjusted_means[0] * best_unit_direction)  # should be -ve of [2].
-                direction_matrices[2][layer_index].append(adjusted_means[1] * best_unit_direction)  # should be -ve of [1].
+                direction_matrices[0][layer_index].append(midpoint * best_unit_direction)  # de-bias vector.
+                direction_matrices[1][layer_index].append(
+                    adjusted_means[0] * best_unit_direction)  # should be -ve of [2].
+                direction_matrices[2][layer_index].append(
+                    adjusted_means[1] * best_unit_direction)  # should be -ve of [1].
             else:
                 print(" [no directions selected]")
 
