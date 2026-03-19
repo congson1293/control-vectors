@@ -46,7 +46,7 @@ class HiddenStateDataManager:
         datasets = self.get_datasets(layer_index)
         # dataset[0] is the baseline
         # [0] = de-bias direction, [1] = negative direction, [2] = positive direction.
-        # negative - baseline; postive - baseline
+        # calculate: (negative - baseline) and (positive - baseline)
         return [dataset - datasets[0] for dataset in datasets[1:]]
 
     def get_num_layers(self) -> int:
