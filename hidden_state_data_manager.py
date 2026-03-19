@@ -126,6 +126,7 @@ class HiddenStateDataManager:
             attention_mask=tokens['attention_mask'].to(self.model_handler.model.device),
             pad_token_id=self.model_handler.tokenizer.pad_token_id if self.model_handler.tokenizer.pad_token_id is not None else self.model_handler.tokenizer.eos_token_id
         )
+        # output.hidden_states = (max_new_tokens; num_layer; batch_size; seq_length; hidden_size)
         hidden_states_by_layer = [hidden_state[:, -1, :].squeeze().to('cpu') for hidden_state in
                                   output.hidden_states[-1][:]]
         deltas = [hidden_states_by_layer[i] - hidden_states_by_layer[i - 1] for i in
