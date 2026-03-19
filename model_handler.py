@@ -51,7 +51,7 @@ class ModelHandler:
             pretrained_model_name_or_path,
             dtype=self.torch_dtype,
             quantization_config=self.quantization_config,
-            device_map='auto' if device == "cuda" else 'cpu',
+            device_map='auto',
             trust_remote_code=True,
             low_cpu_mem_usage=True,
         )
