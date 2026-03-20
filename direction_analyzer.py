@@ -41,6 +41,8 @@ def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> 
 
     # in essence, this computes the dot product of each row in data with the direction vector.
     # output is a 1D tensor.
+    # result of projecting vector x onto vector y is a vector z, which has the same direction with y (the shadow of x on y)
+    # z = (<x,y>/(||x||.||y||).||x||).y = (<x,y>/||y||).y = <x,y> . (y/||y||)
     return torch.matmul(data, direction.reshape(-1, 1)).squeeze()
 
 
