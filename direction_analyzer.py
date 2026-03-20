@@ -49,6 +49,15 @@ def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> 
 def compute_discriminant_ratio(projected_scoresA: torch.Tensor, projected_scoresB: torch.Tensor) -> torch.Tensor:
     """
     Computes the discriminant ratio between two sets of projected scores.
+    Algorithm:
+        μ1 = mean(A); μ2 = mean(B)
+        overall_mean μ = (n1*μ1 + n2*μ2)/(n1+n2) where: n1, n2 are the number element in A and B respectively
+        between_class_variance = n1*(μ1-μ)^2 + n2*(μ2-μ)^2: measure the deviation of the two group centroids from the grand mean.
+                                                            A higher between-class variance reflects greater separation betwwen the two data group.
+        within_class_variance = torch.sum(A-μ1) + torch.sum(B-μ2): measure the within-group variation (error).
+                                                                   A lower within-class variance reflects higher cluster compactness and reduced noise.
+        discriminant_ratio = between_class_variance / within_class_variance
+        we need to maximize discriminant_ratio
 
     Parameters:
         projected_scoresA (torch.Tensor): The first set of projected scores.
