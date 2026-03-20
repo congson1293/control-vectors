@@ -39,6 +39,8 @@ def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> 
     # Normalize the direction vector to ensure it is a unit vector
     direction = direction / torch.norm(direction)
 
+    # in essence, this computes the dot product of each row in data with the direction vector.
+    # output is a 1D tensor.
     return torch.matmul(data, direction.reshape(-1, 1)).squeeze()
 
 
