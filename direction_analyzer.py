@@ -28,6 +28,8 @@ def compute_symmetrised_cross_covariance_eigenvectors(
 def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> torch.Tensor:
     """
     Projects the data onto the given direction vector.
+    # result of projecting vector x onto vector y is a vector z, which has the same direction with y (the shadow of x on y).
+    # z = (<x,y>/(||x||.||y||).||x||).y = (<x,y>/||y||).y = <x,y> . (y/||y||)
 
     Parameters:
         data (torch.Tensor): The input data to be projected.
@@ -37,13 +39,11 @@ def project_data_onto_direction(data: torch.Tensor, direction: torch.Tensor) -> 
         torch.Tensor: The projected data.
     """
     # Normalize the direction vector to ensure it is a unit vector
-    direction = direction / torch.norm(direction)
+    direction = direction / torch.norm(direction)  # y/||y||
 
     # in essence, this computes the dot product of each row in data with the direction vector.
     # output is a 1D tensor.
-    # result of projecting vector x onto vector y is a vector z, which has the same direction with y (the shadow of x on y)
-    # z = (<x,y>/(||x||.||y||).||x||).y = (<x,y>/||y||).y = <x,y> . (y/||y||)
-    return torch.matmul(data, direction.reshape(-1, 1)).squeeze()
+    return torch.matmul(data, direction.reshape(-1, 1)).squeeze()  # <x,y> . (y/||y||)
 
 
 def compute_discriminant_ratio(projected_scoresA: torch.Tensor, projected_scoresB: torch.Tensor) -> torch.Tensor:
