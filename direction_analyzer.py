@@ -197,6 +197,7 @@ class DirectionAnalyzer:
             # If we have a selected direction, then regularise it and use the scaled direction.
             if selected_directions > 0:
                 midpoint = (best_means[0] + best_means[1]) / 2
+                # adjust to baseline = 0
                 adjusted_means = [
                     best_means[0] - midpoint,
                     best_means[1] - midpoint
